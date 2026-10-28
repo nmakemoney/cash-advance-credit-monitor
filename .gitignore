@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# Generated data (sample/ is committed on purpose)
+data/raw/*
+!data/raw/.gitkeep
+
+# Models (committed explicitly in Phase 2)
+*.pkl
+!src/cacm/models/*.pkl
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

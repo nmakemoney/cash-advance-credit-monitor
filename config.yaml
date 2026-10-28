@@ -1,0 +1,90 @@
+# =====================================================================
+# Cash-Advance Credit Monitor — single source of every tunable assumption.
+# Nothing in src/ hard-codes a rate; everything is read from here.
+# Values are seeds (CLAUDE.md §5). Cite the source of any change in docs/decisions/.
+# =====================================================================
+
+random_seed: 42                 # Global seed for the synthetic generator
+
+# ---- Currency -------------------------------------------------------
+currency: MXN
+fx_mxn_per_usd: 18.5            # Fixed rate used only to report USD alongside MXN
+
+# ---- Cohorts / volume -----------------------------------------------
+cohorts:
+  history_months: 24            # Back-dated origination cohorts
+  forward_months: 12            # Forward-projected cohorts
+  loans_per_month: 6000         # Funded loans per cohort month (~216k loans total)
+  first_cohort: "2024-01"       # YYYY-MM of the earliest cohort
+
+# ---- Product terms --------------------------------------------------
+amount_ladder_mxn: [500, 1000, 1500, 2500, 4000, 6000, 8000]  # Repeat-loan progression ladder
+amount_min_mxn: 500
+amount_max_mxn: 8000
+term_days_options: [14, 30]     # Single bullet payment at the end of the term
+term_days_weights: [0.6, 0.4]   # Share of loans on each term
+
+# ---- Pricing --------------------------------------------------------
+fee_pct_by_band:                # Flat fee as % of principal, by application score band (1 = riskiest)
+  1: 0.15
+  2: 0.14
+  3: 0.13
+  4: 0.12
+  5: 0.11
+  6: 0.10
+  7: 0.09
+  8: 0.09
+  9: 0.08
+  10: 0.08
+instant_transfer_fee_mxn: 49    # Optional fee for instant disbursement
+instant_transfer_take_rate: 0.6 # Share of borrowers who opt in
+
+# ---- Repayment & collections ----------------------------------------
+retry_schedule_days: [1, 3, 7]        # Auto-debit retries, days after the due date
+retry_success_rates: [0.35, 0.20, 0.10]  # Success probability of each retry, given prior failure
+dpd_buckets: [0, 1, 8, 31, 61, 91]    # Lower bounds: current, 1–7, 8–30, 31–60, 61–90, 90+
+charge_off_dpd: 90                    # Charge-off once DPD reaches this value
+recovery_rate_post_co: 0.08           # Lump recovery as a share of charged-off principal
+
+# ---- Borrower behaviour ---------------------------------------------
+p_repeat_on_time: 0.72          # Probability an on-time repayer re-applies next cycle
+true_risk_beta: {a: 2.0, b: 9.0}  # Latent default propensity ~ Beta(a, b)
+feature_noise_sd: 0.30          # Noise added to observable cash-flow features (feature quality knob)
+regions: {CDMX: 0.30, Jalisco: 0.18, "Nuevo León": 0.15, Yucatán: 0.07, Other: 0.30}
+channels: {organic: 0.45, paid: 0.40, referral: 0.15}
+
+# ---- Credit policy defaults (overridden by policy YAML files in Phase 3) ---
+policy:
+  score_cutoff_band: 3          # Decline bands below this
+  min_account_age_months: 3
+  min_monthly_inflow_mxn: 4000
+  max_obligations_ratio: 0.45
+
+# ---- Unit economics -------------------------------------------------
+cost_of_funds_annual: 0.18
+servicing_cost_per_loan_mxn: 15
+collections_cost_per_delinquent_loan_mxn: 60
+cac_by_channel_mxn: {organic: 40, paid: 320, referral: 110}   # Charged on first loan only
+lgd: 0.92                       # 1 - recovery_rate_post_co; kept explicit for the P&L
+discount_rate_annual: 0.20
+loss_rate_ceiling: 0.12         # Constraint used when choosing the NPV-maximising cutoff
+
+# ---- Macro shock (so drift detection has something to catch) --------
+macro_shock:
+  enabled: true
+  start_cohort: "2025-09"
+  end_cohort: "2025-11"
+  pd_multiplier: 1.5
+
+# ---- Experiments ----------------------------------------------------
+experiments:
+  alpha: 0.05
+  power: 0.80
+  hash_salt: "cacm-v1"
+  alpha_spending: obrien_fleming   # or: bonferroni
+
+# ---- Drift monitoring -----------------------------------------------
+drift_thresholds:
+  psi_warn: 0.10
+  psi_alert: 0.25
+  fpd_pp_alert: 2.0             # First-payment default, actual vs expected, percentage points
